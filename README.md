@@ -1,1 +1,1 @@
-# Amazing-Joey
+# Amazing-JoeY
