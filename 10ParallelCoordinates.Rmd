@@ -1,0 +1,339 @@
+---
+title: "Multivariate Continuous Data"
+author: "Prof. Joyce Robbins"
+output: 
+  slidy_presentation:
+    css: styles5293.css
+    fig_height: 4
+    fig_width: 6
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(warning = FALSE, message = FALSE,
+                      cache = FALSE, echo = TRUE)
+```
+
+## `ggplot2`
+
+If you're doing it right, legends appear automatically.
+
+```{r legends, out.width = "50%"}
+library(tidyverse)
+setosa <- iris[iris$Species == "setosa",]
+versicolor <- iris[iris$Species == "versicolor",]
+virginica <- iris[iris$Species == "virginica",]
+
+ggplot(setosa, aes(Sepal.Length, Sepal.Width)) +
+  geom_point(color = "red") +
+  geom_point(data = versicolor, aes(Sepal.Length, Sepal.Width),
+             color = "green") +
+  geom_point(data = virginica, aes(Sepal.Length, Sepal.Width),
+             color = "blue")
+
+ggplot(iris, aes(Sepal.Length, Sepal.Width, color = Species)) +
+  geom_point()
+```
+
+## `ggplot2`
+```{r ref.label="legends", fig.height = 3, echo = TRUE}
+```
+
+## `ggplot2`
+
+> - Do not use `grid.arrange`, `multiplot`, etc. (until further notice)
+
+> - Use `facet_wrap()` or `facet_grid()` for multiple plots.
+
+> - Watch out for function conflicts
+
+> - Watch out for cache problems
+
+## Parallel coordinate plots
+
+> - `ggplot2::geom_line()` 
+
+> - `GGally::ggparcoord()`   (static, ggplot2)
+
+> - `MASS:: parcoord()`    (static, base)
+
+> - `parcoords::parcoords()`  (interactive) <br> devtools::install_github("timelyportfolio/parcoords") <br> http://www.buildingwidgets.com/blog/2015/1/30/week-04-interactive-parallel-coordinates-1
+
+> - ????
+
+
+## Two continuous variables: scatterplot
+```{r}
+library(tidyverse)
+theme_set(theme_grey(18))
+norm20 <- rnorm(100, 20, 5)
+norm5 <- rnorm(100, 5, 1)
+df <- data.frame(norm20, norm5)
+ggplot(df, aes(norm20, norm5)) + geom_point()
+```
+
+## Slope graph
+```{r}
+tidydf <- df %>% rownames_to_column("ID") %>% gather(var, value, -ID)
+ggplot(tidydf, aes(x = var, y = value, group = ID)) + geom_line()
+```
+
+## Standardize data
+```{r}
+standardize <- function(x) (x-mean(x))/sd(x)
+df2 <- tidydf %>% group_by(var) %>% 
+  mutate(value = standardize(value)) %>% ungroup()
+g0 <- ggplot(df2, aes(x = var, y = value, group = ID)) + 
+  geom_line(alpha = .5) + ggtitle("Standardize")
+g0  
+```
+
+## Rescale data to [0,1]
+```{r}
+df2 <- tidydf %>% group_by(var) %>% 
+  mutate(value = scales::rescale(value)) %>% ungroup()
+g1 <- ggplot(df2, aes(x = var, y = value, group = ID)) + 
+  geom_line(alpha = .5) + ggtitle("Rescale")
+g1
+```
+
+## Compare
+```{r, out.width="50%", echo = FALSE}
+g0
+g1
+```
+
+## Compare different distributions
+```{r}
+notnorm <- c(1, rep(50, 98), 100)
+df <- data.frame(norm20, notnorm)
+tidydf <- df %>% rownames_to_column("ID") %>% gather(var, value, -ID)
+ggplot(tidydf, aes(x = var, y = value, group = ID)) + 
+  geom_line(alpha = .5)
+```
+
+## Compare
+```{r, out.width= "50%"}
+df2 <- tidydf %>% group_by(var) %>% 
+  mutate(value = standardize(value)) %>% ungroup()
+ggplot(df2, aes(x = var, y = value, group = ID)) + 
+  geom_line(alpha = .5) + ggtitle("Standardize")
+df2 <- tidydf %>% group_by(var) %>% 
+  mutate(value = scales::rescale(value)) %>% ungroup()
+ggplot(df2, aes(x = var, y = value, group = ID)) + 
+  geom_line(alpha = .5) + ggtitle("Rescale")
+```
+
+## Scale = "globalminmax"
+```{r, fig.width = 10}
+library(GGally)
+theme_set(theme_grey(14))
+# scale = globalminmax
+mystates <- data.frame(state.x77) %>% 
+    rownames_to_column("State") %>% 
+    mutate(Region = factor(state.region))
+# state.region is a separate vector -- see: ?state
+mystates$Region <- factor(mystates$Region,
+                          levels = c("Northeast", "North Central",
+                                     "South","West"))
+ggparcoord(mystates, columns = 2:9, scale = "globalminmax")
+
+
+```
+
+## Scale = "std" (default) 
+```{r, fig.width = 10}
+# scale = std (default)
+ggparcoord(mystates, columns = 2:9)
+```
+
+## Alpha
+```{r, fig.width = 10}
+# scale = std (default)
+ggparcoord(mystates, columns = 2:9, alphaLines = .3)
+```
+
+
+## Alpha + rescale
+```{r, fig.width = 10}
+# scale = std (default)
+ggparcoord(mystates, columns = 2:9, alphaLines = .3,
+           scale = "uniminmax")
+```
+
+## Dataset with repeats
+```{r}
+x <- 1:10
+y <- c(2,2,4,4,5,5,5,10,10,10)
+z <- c(3,3,2,3,3,7,7,5,7,7)
+w <- c(1, 1, 1, 7, 7, 7, 8, 8, 8, 8)
+df <- data.frame(x,y,z, w)
+g0 <- ggparcoord(df, columns = 1:4, scale = "globalminmax") + geom_vline(xintercept = 1:4, color = "lightblue")
+g0
+```
+
+## Splines
+```{r}
+g1 <- ggparcoord(df, columns = 1:4, scale = "globalminmax",
+                 splineFactor = 10) + 
+  geom_vline(xintercept = 1:4, color = "lightblue")
+g1
+```
+
+## Compare
+```{r, out.width="50%", echo = FALSE}
+g0
+g1
+```
+
+## Alpha
+```{r}
+g1 <- ggparcoord(df, columns = 1:4, scale = "globalminmax",
+                 splineFactor = 10, alphaLines = .5) + 
+  geom_vline(xintercept = 1:4, color = "lightblue")
+g1
+```
+
+## Alpha + rescale + splines
+```{r, fig.width = 10}
+# scale = std (default)
+ggparcoord(mystates, columns = 2:9, alphaLines = .3,
+           scale = "uniminmax", splineFactor = 10) + 
+  geom_vline(xintercept = 2:9, color = "lightblue")
+
+cat(colnames(mystates[2:9]))
+```
+
+## Watch out for categorical variables
+```{r}
+# See: http://www.buildingwidgets.com/blog/2015/1/30/week-04-interactive-parallel-coordinates-1
+# devtools::install_github("timelyportfolio/parcoords")
+library(parcoords)
+data.frame(Titanic)  %>%
+  parcoords(
+    rownames = F # turn off rownames from the data.frame
+    , brushMode = "1D-axes"
+    , reorderable = T
+    , queue = T
+    , color = list(
+      colorBy = "Class"
+      ,colorScale = htmlwidgets::JS("d3.scale.category10()")
+    )    
+  )
+```
+
+## Add alpha blending
+```{r}
+# with alpha
+mystates  %>% arrange(Region) %>% 
+  parcoords(
+    rownames = F 
+    , brushMode = "1D-axes"
+    , reorderable = T
+    , queue = T
+    , alpha = .5
+    )    
+```
+
+## Color
+```{r}
+  parcoords(mystates
+    , rownames = F 
+    , brushMode = "1D-axes"
+    , reorderable = T
+    , queue = T
+    , color = list(
+      colorBy = "Region"
+      ,colorScale = htmlwidgets::JS("d3.scale.category10()") 
+    )    
+  )
+```
+
+## Filter out Alaska / Texas
+```{r}
+# filter out Alaska, Texas, group by Region
+myregionorder <- mystates %>% group_by(Region) %>% 
+    summarize(n = n()) %>% arrange(n)
+mystates$Region <- factor(mystates$Region, 
+                          levels = myregionorder$Region)
+data.frame(mystates)  %>% filter(State != "Alaska") %>%
+  filter(State != "Texas") %>% arrange(Region) %>% 
+  parcoords(
+    rownames = F 
+    , brushMode = "1D-axes"
+    , reorderable = T
+    , queue = T
+    , color = list(
+      colorBy = "Region"
+      ,colorScale = htmlwidgets::JS("d3.scale.category10()") 
+    )    
+  )
+```
+
+## Highlighting a trend 
+```{r}
+mystates <- mystates %>% 
+    mutate(color = factor(ifelse(Murder > 11, 1, 0))) %>% 
+    arrange(color)
+ggparcoord(mystates, columns = 2:9, groupColumn = "color") +
+    scale_color_manual(values = c("grey70", "red")) +
+    coord_flip() + guides(color = FALSE) +
+    ggtitle("States with Murder Rate > 11 (per 100000) in red")
+```
+
+## 2017 Red Sox
+```{r}
+# Data from http://mlb.mlb.com/stats/
+baseball <- read.csv("RedSoxStats2017.csv")
+ggparcoord(baseball, columns = 5:20, groupColumn = "Pos",
+           scale = "uniminmax")
+```
+
+## 2017 Red Sox (Interactive)
+```{r}
+baseball <- read.csv("RedSoxStats2017.csv")
+myposorder <- baseball %>% group_by(Pos) %>% 
+    summarize(n = n()) %>% arrange(n)
+baseball$Pos <- factor(baseball$Pos, 
+                          levels = myposorder$Pos)
+data.frame(baseball)  %>% arrange(Pos) %>% 
+    select(-Team) %>% 
+  parcoords(
+    rownames = F # turn off rownames from the data.frame
+    , brushMode = "1D-axes"
+    , reorderable = T
+    , queue = T
+    , color = list(
+      colorBy = "Pos"
+      ,colorScale = htmlwidgets::JS("d3.scale.category10()")
+    )    
+    , width = 1000
+    , height = 400
+  )
+```
+
+## 2016 Top Hitters (25 highest AVG)
+```{r}
+baseball <- read.csv("TopHitters2016.csv")
+myteamorder <- baseball %>% group_by(Team) %>% 
+    summarize(n = n()) %>% arrange(n)
+baseball$Team <- factor(baseball$Team, 
+                          levels = myteamorder$Team)
+data.frame(baseball)  %>% arrange(Team) %>% 
+  parcoords(
+    rownames = F # turn off rownames from the data.frame
+    , brushMode = "1D-axes"
+    , reorderable = T
+    , queue = T
+    , color = list(
+      colorBy = "Team"
+      ,colorScale = htmlwidgets::JS("d3.scale.category10()")
+    )    
+    , width = 1000
+    , height = 400
+  )
+```
+
+## SAT data
+
+https://data.cityofnewyork.us/Education/SAT-College-Board-2010-School-Level-Results/zt9s-n5aj/data
+
